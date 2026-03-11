@@ -38,3 +38,6 @@ coverage/
 *.tmp
 
 .vercel
+
+service-account.json
+

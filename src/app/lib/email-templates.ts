@@ -4,17 +4,17 @@
  */
 
 const COLORS = {
-  black: "#000000",
-  darkBg: "#030213",
-  gray: "#6c6c6c",
-  border: "#dbe0ec",
-  lightBg: "#f9f9f7",
-  white: "#ffffff",
-  red: "#d4183d",
+    black: "#000000",
+    darkBg: "#030213",
+    gray: "#6c6c6c",
+    border: "#dbe0ec",
+    lightBg: "#f9f9f7",
+    white: "#ffffff",
+    red: "#d4183d",
 };
 
 function emailWrapper(content: string): string {
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -63,31 +63,35 @@ function emailWrapper(content: string): string {
 }
 
 function label(text: string): string {
-  return `<p style="font-family:'Courier New',monospace;font-size:11px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">${text}</p>`;
+    return `<p style="font-family:'Courier New',monospace;font-size:11px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">${text}</p>`;
 }
 
 function heading(text: string): string {
-  return `<h1 style="font-family:Georgia,'Times New Roman',serif;font-size:28px;color:${COLORS.black};letter-spacing:-0.8px;line-height:1.15;margin:0 0 8px;">${text}</h1>`;
+    return `<h1 style="font-family:Georgia,'Times New Roman',serif;font-size:28px;color:${COLORS.black};letter-spacing:-0.8px;line-height:1.15;margin:0 0 8px;">${text}</h1>`;
 }
 
 function paragraph(text: string): string {
-  return `<p style="font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${COLORS.black};letter-spacing:-0.2px;line-height:1.6;margin:0 0 16px;">${text}</p>`;
+    return `<p style="font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${COLORS.black};letter-spacing:-0.2px;line-height:1.6;margin:0 0 16px;">${text}</p>`;
 }
 
 function subtext(text: string): string {
-  return `<p style="font-family:Georgia,'Times New Roman',serif;font-size:14px;color:${COLORS.gray};line-height:1.5;margin:0 0 16px;">${text}</p>`;
+    return `<p style="font-family:Georgia,'Times New Roman',serif;font-size:14px;color:${COLORS.gray};line-height:1.5;margin:0 0 16px;">${text}</p>`;
 }
 
 function divider(): string {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="border-top:1px solid ${COLORS.border};"></td></tr></table>`;
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="border-top:1px solid ${COLORS.border};"></td></tr></table>`;
 }
 
-function button(text: string, href: string, variant: "primary" | "outline" = "primary"): string {
-  const styles =
-    variant === "primary"
-      ? `background-color:${COLORS.black};color:${COLORS.white};`
-      : `background-color:${COLORS.white};color:${COLORS.black};border:1px solid ${COLORS.border};`;
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+function button(
+    text: string,
+    href: string,
+    variant: "primary" | "outline" = "primary",
+): string {
+    const styles =
+        variant === "primary"
+            ? `background-color:${COLORS.black};color:${COLORS.white};`
+            : `background-color:${COLORS.white};color:${COLORS.black};border:1px solid ${COLORS.border};`;
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
     <tr>
       <td align="center">
         <a href="${href}" style="display:inline-block;${styles}font-family:'Courier New',monospace;font-size:13px;text-decoration:none;padding:16px 32px;letter-spacing:0.5px;">&#9642;&nbsp;&nbsp;${text}</a>
@@ -97,26 +101,30 @@ function button(text: string, href: string, variant: "primary" | "outline" = "pr
 }
 
 function infoBox(items: { label: string; value: string }[]): string {
-  const rows = items
-    .map(
-      (item) => `<tr>
+    const rows = items
+        .map(
+            (item) => `<tr>
       <td style="padding:12px 20px;border-bottom:1px solid ${COLORS.border};">
         <p style="font-family:'Courier New',monospace;font-size:10px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px;">${item.label}</p>
         <p style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLORS.black};margin:0;">${item.value}</p>
       </td>
-    </tr>`
-    )
-    .join("");
+    </tr>`,
+        )
+        .join("");
 
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${COLORS.lightBg};border:1px solid ${COLORS.border};margin:24px 0;">
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${COLORS.lightBg};border:1px solid ${COLORS.border};margin:24px 0;">
     ${rows}
   </table>`;
 }
 
 // ─── Email Templates ─────────────────────────────────────────────
 
-export function acceptanceEmail(firstName: string, positionTitle: string, portalUrl: string): string {
-  return emailWrapper(`
+export function acceptanceEmail(
+    firstName: string,
+    positionTitle: string,
+    portalUrl: string,
+): string {
+    return emailWrapper(`
     ${label("Accepted")}
     ${heading("Welcome to WOSS Robotics!")}
     <p style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLORS.gray};letter-spacing:-0.2px;line-height:1.5;margin:0 0 32px;">
@@ -129,9 +137,9 @@ export function acceptanceEmail(firstName: string, positionTitle: string, portal
     ${paragraph("Please confirm your acceptance through the portal at your earliest convenience. We look forward to an incredible year working together!")}
 
     ${infoBox([
-      { label: "Position", value: positionTitle },
-      { label: "Team", value: "WOSS Robotics Executive — 2026-2027" },
-      { label: "Status", value: "Accepted" },
+        { label: "Position", value: positionTitle },
+        { label: "Team", value: "WOSS Robotics Executive — 2026-2027" },
+        { label: "Status", value: "Accepted" },
     ])}
 
     ${button("Open Portal", portalUrl)}
@@ -144,8 +152,12 @@ export function acceptanceEmail(firstName: string, positionTitle: string, portal
   `);
 }
 
-export function rejectionEmail(firstName: string, positionTitle: string, portalUrl: string): string {
-  return emailWrapper(`
+export function rejectionEmail(
+    firstName: string,
+    positionTitle: string,
+    portalUrl: string,
+): string {
+    return emailWrapper(`
     ${label("Update")}
     ${heading("Update from WOSS Robotics")}
     <p style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLORS.gray};letter-spacing:-0.2px;line-height:1.5;margin:0 0 32px;">
@@ -158,8 +170,8 @@ export function rejectionEmail(firstName: string, positionTitle: string, portalU
     ${paragraph("We truly value your interest and encourage you to stay involved with the club as a general member. We hope you'll consider applying again next year — your effort and enthusiasm are deeply appreciated.")}
 
     ${infoBox([
-      { label: "Position", value: positionTitle },
-      { label: "Status", value: "Not selected" },
+        { label: "Position", value: positionTitle },
+        { label: "Status", value: "Not selected" },
     ])}
 
     ${button("View Details", portalUrl, "outline")}
@@ -173,15 +185,15 @@ export function rejectionEmail(firstName: string, positionTitle: string, portalU
 }
 
 export function meetingUpdateEmail(
-  firstName: string,
-  meetingTitle: string,
-  date: string,
-  time: string,
-  location: string,
-  details: string,
-  portalUrl: string
+    firstName: string,
+    meetingTitle: string,
+    date: string,
+    time: string,
+    location: string,
+    details: string,
+    portalUrl: string,
 ): string {
-  return emailWrapper(`
+    return emailWrapper(`
     ${label("Meeting Update")}
     ${heading(meetingTitle)}
     <p style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLORS.gray};letter-spacing:-0.2px;line-height:1.5;margin:0 0 32px;">
@@ -192,10 +204,10 @@ export function meetingUpdateEmail(
     ${paragraph(details)}
 
     ${infoBox([
-      { label: "Event", value: meetingTitle },
-      { label: "Date", value: date },
-      { label: "Time", value: time },
-      { label: "Location", value: location },
+        { label: "Event", value: meetingTitle },
+        { label: "Date", value: date },
+        { label: "Time", value: time },
+        { label: "Location", value: location },
     ])}
 
     ${button("Open Portal", portalUrl)}
@@ -208,50 +220,13 @@ export function meetingUpdateEmail(
   `);
 }
 
-export function interviewScheduledEmail(
-  firstName: string,
-  positionTitle: string,
-  date: string,
-  time: string,
-  location: string,
-  portalUrl: string
-): string {
-  return emailWrapper(`
-    ${label("Interview Scheduled")}
-    ${heading("Your interview is confirmed")}
-    <p style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLORS.gray};letter-spacing:-0.2px;line-height:1.5;margin:0 0 32px;">
-      We're excited to meet you.
-    </p>
-
-    ${paragraph(`Dear ${firstName},`)}
-    ${paragraph(`Your interview for the <strong>${positionTitle}</strong> position has been scheduled. Please review the details below and arrive a few minutes early.`)}
-
-    ${infoBox([
-      { label: "Position", value: positionTitle },
-      { label: "Date", value: date },
-      { label: "Time", value: time },
-      { label: "Location", value: location },
-    ])}
-
-    ${paragraph("Please prepare to discuss your application, relevant experience, and your vision for the role. The interview will be approximately 15-20 minutes.")}
-
-    ${button("View Interview Details", portalUrl)}
-
-    ${divider()}
-
-    <p style="font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${COLORS.black};line-height:1.6;margin:0;">
-      Good luck!<br />The WOSS Robotics Executive Team
-    </p>
-  `);
-}
-
 export function genericNotificationEmail(
-  firstName: string,
-  subject: string,
-  bodyText: string,
-  portalUrl: string
+    firstName: string,
+    subject: string,
+    bodyText: string,
+    portalUrl: string,
 ): string {
-  return emailWrapper(`
+    return emailWrapper(`
     ${label("Notification")}
     ${heading(subject)}
     <p style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLORS.gray};letter-spacing:-0.2px;line-height:1.5;margin:0 0 32px;">
@@ -259,7 +234,10 @@ export function genericNotificationEmail(
     </p>
 
     ${paragraph(`Hi ${firstName},`)}
-    ${bodyText.split("\n").map((line) => paragraph(line)).join("")}
+    ${bodyText
+        .split("\n")
+        .map((line) => paragraph(line))
+        .join("")}
 
     ${button("Open Portal", portalUrl)}
 
@@ -271,8 +249,11 @@ export function genericNotificationEmail(
   `);
 }
 
-export function decisionReleasedEmail(firstName: string, portalUrl: string): string {
-  return emailWrapper(`
+export function decisionReleasedEmail(
+    firstName: string,
+    portalUrl: string,
+): string {
+    return emailWrapper(`
     ${label("Decisions Released")}
     ${heading("Your decision is ready")}
     <p style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLORS.gray};letter-spacing:-0.2px;line-height:1.5;margin:0 0 32px;">
