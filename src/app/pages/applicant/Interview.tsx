@@ -8,6 +8,7 @@ import {
 import { useAuth } from "../../lib/AuthContext";
 import { useApplication, useSettings } from "../../lib/hooks";
 import { CAL_BOOKING_URL } from "../../lib/interview-config";
+import { formatList } from "../../lib/utils";
 
 export function ApplicantInterview() {
     const { profile } = useAuth();
@@ -109,7 +110,7 @@ export function ApplicantInterview() {
                 <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-lg tracking-[-0.3px] mt-2">
                     You have been invited to interview for{" "}
                     <span className="text-black">
-                        {interviewPositionTitles.join(", ")}
+                        {formatList(interviewPositionTitles)}
                     </span>
                     .
                 </p>

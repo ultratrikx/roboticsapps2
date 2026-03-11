@@ -10,6 +10,7 @@ import {
     genericNotificationEmail,
 } from "../../lib/email-templates";
 import { CAL_BOOKING_URL } from "../../lib/interview-config";
+import { formatList } from "../../lib/utils";
 
 export function AdminCommunications() {
     const { applications, loading } = useAllApplications();
@@ -252,10 +253,11 @@ export function AdminCommunications() {
             }
             const firstName = profile.first_name || "Applicant";
             const positionNames =
-                (app.application_positions || [])
-                    .map((ap: any) => ap.positions?.title)
-                    .filter(Boolean)
-                    .join(", ") || "Executive Position";
+                formatList(
+                    (app.application_positions || [])
+                        .map((ap: any) => ap.positions?.title)
+                        .filter(Boolean),
+                ) || "Executive Position";
             const portalUrl = window.location.origin + "/applicant";
             const html = genericNotificationEmail(
                 firstName,
