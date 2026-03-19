@@ -105,7 +105,7 @@ export function AdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-60 min-h-screen flex flex-col">
+      <main className="flex-1 ml-60 min-h-screen flex flex-col min-w-0 overflow-x-hidden">
         {/* Top bar */}
         <header className="h-14 bg-white border-b border-[#dbe0ec] flex items-center justify-between px-8 sticky top-0 z-10">
           <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] uppercase tracking-[0.08em]">
@@ -117,7 +117,7 @@ export function AdminLayout() {
             </div>
           </div>
         </header>
-        <div className="p-8 flex-1">
+        <div className="p-8 flex-1 min-w-0">
           <Outlet />
         </div>
       </main>

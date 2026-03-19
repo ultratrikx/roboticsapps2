@@ -260,7 +260,7 @@ export function AdminQuestions() {
                   <div className="bg-[#f9f9f7] w-10 flex items-center justify-center border-r border-[#dbe0ec] cursor-grab active:cursor-grabbing hover:bg-[#f0f0ee] transition-colors">
                     <GripVertical className="w-4 h-4 text-[#6c6c6c]" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="px-5 py-4 flex justify-between items-center cursor-pointer hover:bg-[#f9f9f7] transition-colors" onClick={() => toggleExpand(q.id)}>
                       <div className="flex items-center gap-4 flex-1 min-w-0 pr-4">
                         <span className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] shrink-0">{String(idx + 1).padStart(2, "0")}</span>
