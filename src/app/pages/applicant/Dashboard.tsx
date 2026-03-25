@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Link, useNavigate } from "react-router";
-import { ArrowRight, PenTool, Loader2, CheckCircle2, Circle, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, PenTool, Loader2, CheckCircle2, Circle, ChevronLeft, ChevronRight, ListOrdered } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../../components/ui/dialog";
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameDay, isSameMonth, format, parseISO, isToday,
@@ -53,6 +61,19 @@ export function ApplicantDashboard() {
   const { progressCounts } = useDataContext();
 
   const appPositions = application?.application_positions || [];
+
+  const [showRankingNotice, setShowRankingNotice] = useState(false);
+
+  useEffect(() => {
+    if (appPositions.length > 0 && !localStorage.getItem("ranking_notice_dismissed")) {
+      setShowRankingNotice(true);
+    }
+  }, [appPositions.length]);
+
+  const dismissRankingNotice = () => {
+    localStorage.setItem("ranking_notice_dismissed", "true");
+    setShowRankingNotice(false);
+  };
 
   const sections = [
     {
@@ -110,6 +131,52 @@ export function ApplicantDashboard() {
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Ranking Feature Notification */}
+      <Dialog open={showRankingNotice} onOpenChange={(open) => { if (!open) dismissRankingNotice(); }}>
+        <DialogContent className="sm:max-w-md bg-white border border-[#dbe0ec] rounded-none p-0 gap-0">
+          <div className="px-6 pt-6 pb-4">
+            <DialogHeader className="gap-0">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-black flex items-center justify-center">
+                  <ListOrdered className="w-4 h-4 text-white" />
+                </div>
+                <DialogTitle className="font-['Radio_Canada_Big',sans-serif] font-medium text-black text-base leading-tight">
+                  New: Rank Your Positions
+                </DialogTitle>
+              </div>
+              <DialogDescription asChild>
+                <div className="space-y-3">
+                  <p className="font-['Source_Serif_4',serif] text-[#333] text-[15px] leading-relaxed">
+                    You can now <span className="font-semibold text-black">rank your selected positions in order of preference</span>. This is an important step — we'll prioritize your <span className="font-semibold text-black">top 2 choices</span> during the review process, though positions ranked below will still be considered.
+                  </p>
+                  <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-sm leading-relaxed">
+                    Head to the Positions page to drag and reorder your selections. Make sure your most desired roles are at the top.
+                  </p>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <DialogFooter className="border-t border-[#dbe0ec] px-6 py-4 flex-row sm:justify-between gap-3">
+            <button
+              onClick={dismissRankingNotice}
+              className="font-['Geist_Mono',monospace] text-[12px] text-[#6c6c6c] hover:text-black transition-colors"
+            >
+              Dismiss
+            </button>
+            <Link
+              to="/applicant/positions"
+              onClick={dismissRankingNotice}
+              className="bg-black flex gap-[10px] items-center justify-center px-5 py-3 hover:bg-zinc-800 transition-colors"
+            >
+              <div className="bg-white shrink-0 w-[5px] h-[5px]" />
+              <span className="font-['Geist_Mono',monospace] text-[12px] text-white whitespace-nowrap leading-none">
+                Rank My Positions
+              </span>
+            </Link>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="border-b border-[#dbe0ec] pb-8">
         <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] uppercase tracking-[0.1em] mb-3">
