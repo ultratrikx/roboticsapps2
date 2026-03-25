@@ -4,6 +4,7 @@ import { Loader2, Check, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../lib/AuthContext";
 import { usePositions } from "../lib/hooks";
+import { useDataContext } from "../lib/DataContext";
 import { supabase } from "../lib/supabase";
 import { GRADE_LEVELS } from "../data";
 import { cn } from "../lib/utils";
@@ -21,6 +22,7 @@ export function Onboarding() {
   const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const { positions, loading: positionsLoading } = usePositions();
+  const { refetchApplication } = useDataContext();
   const [firstName, setFirstName] = useState(profile?.first_name || "");
   const [lastName, setLastName] = useState(profile?.last_name || "");
   const [grade, setGrade] = useState(profile?.grade || "");
@@ -89,17 +91,31 @@ export function Onboarding() {
         .select()
         .single();
 
-      if (!appErr && appData) {
+      if (appErr) {
+        console.error("Failed to create application:", appErr);
+        toast.error("Failed to create application");
+        setSaving(false);
+        return;
+      }
+
+      if (appData) {
         const posInserts = rankedPositions.map((position_id, i) => ({
           application_id: appData.id,
           position_id,
           position_rank: i + 1,
         }));
-        await supabase.from("application_positions").insert(posInserts);
+        const { error: posErr } = await supabase.from("application_positions").insert(posInserts);
+        if (posErr) {
+          console.error("Failed to save positions:", posErr);
+          toast.error("Failed to save positions");
+          setSaving(false);
+          return;
+        }
       }
     }
 
     await refreshProfile();
+    await refetchApplication();
     toast.success(`Welcome, ${firstName.trim()}! Let's get your application started.`);
     setSaving(false);
     navigate("/applicant");

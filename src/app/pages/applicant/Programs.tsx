@@ -114,18 +114,30 @@ export function ApplicantPrograms() {
 
     // Create the single application row if it doesn't exist yet
     if (!appId) {
-      const { data, error } = await supabase
+      // Check for existing application first (cache may be stale)
+      const { data: existing } = await supabase
         .from("applications")
-        .insert({ user_id: profile.id, status: "draft" })
-        .select()
-        .single();
-      if (error || !data) {
-        console.error("Failed to create application:", error);
-        toast.error("Failed to create application");
-        setSaving(false);
-        return;
+        .select("id")
+        .eq("user_id", profile.id)
+        .maybeSingle();
+
+      if (existing) {
+        appId = existing.id;
+        await refetch();
+      } else {
+        const { data, error } = await supabase
+          .from("applications")
+          .insert({ user_id: profile.id, status: "draft" })
+          .select()
+          .single();
+        if (error || !data) {
+          console.error("Failed to create application:", error);
+          toast.error("Failed to create application");
+          setSaving(false);
+          return;
+        }
+        appId = data.id;
       }
-      appId = data.id;
     }
 
     // Determine next rank start (after existing positions)
