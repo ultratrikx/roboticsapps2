@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router";
-import { Search, Loader2, MessageSquare, ArrowRight } from "lucide-react";
+import { Search, Loader2, MessageSquare, ArrowRight, EyeOff, Eye } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
 
@@ -40,6 +40,7 @@ export function AdminResponses() {
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [loadingResponses, setLoadingResponses] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [hideNames, setHideNames] = useState(true);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
 
   // Fetch questions
@@ -283,6 +284,22 @@ export function AdminResponses() {
                     className="w-full border border-[#dbe0ec] bg-white pl-10 pr-4 py-2.5 font-['Radio_Canada_Big',sans-serif] text-sm text-black outline-none focus:border-black transition-colors placeholder-[#6c6c6c]"
                   />
                 </div>
+                <label className="inline-flex items-center gap-2 border border-[#dbe0ec] px-2.5 py-2 shrink-0 cursor-pointer select-none hover:bg-[#f9f9f7] transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={hideNames}
+                    onChange={(e) => setHideNames(e.target.checked)}
+                    className="accent-black w-3.5 h-3.5 cursor-pointer"
+                  />
+                  {hideNames ? (
+                    <EyeOff className="w-3.5 h-3.5 text-[#6c6c6c]" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5 text-[#6c6c6c]" />
+                  )}
+                  <span className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c]">
+                    Hide names
+                  </span>
+                </label>
                 <span className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] border border-[#dbe0ec] px-2.5 py-2 shrink-0">
                   {filteredResponses.length} of {responses.length} responses
                 </span>
@@ -303,7 +320,7 @@ export function AdminResponses() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {filteredResponses.map((r) => {
+                  {filteredResponses.map((r, index) => {
                     const firstName = r.applications?.profiles?.first_name || "";
                     const lastName = r.applications?.profiles?.last_name || "";
                     const fullName = `${firstName} ${lastName}`.trim() || "Unknown Applicant";
@@ -319,11 +336,13 @@ export function AdminResponses() {
                         <div className="px-5 py-3 border-b border-[#dbe0ec] flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="font-['Radio_Canada_Big',sans-serif] text-sm font-medium text-black truncate">
-                              {fullName}
+                              {hideNames ? `Applicant ${index + 1}` : fullName}
                             </p>
-                            <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] truncate">
-                              {email}
-                            </p>
+                            {!hideNames && (
+                              <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] truncate">
+                                {email}
+                              </p>
+                            )}
                           </div>
                           <span className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] border border-[#dbe0ec] px-2 py-0.5 shrink-0">
                             {words} {words === 1 ? "word" : "words"}
@@ -338,15 +357,17 @@ export function AdminResponses() {
                         </div>
 
                         {/* Card footer */}
-                        <div className="px-5 py-3 border-t border-[#dbe0ec] bg-[#f9f9f7]">
-                          <Link
-                            to={`/admin/applications/${r.application_id}`}
-                            className="inline-flex items-center gap-1.5 font-['Geist_Mono',monospace] text-[11px] text-black hover:underline transition-colors"
-                          >
-                            View Application
-                            <ArrowRight className="w-3 h-3" />
-                          </Link>
-                        </div>
+                        {!hideNames && (
+                          <div className="px-5 py-3 border-t border-[#dbe0ec] bg-[#f9f9f7]">
+                            <Link
+                              to={`/admin/applications/${r.application_id}`}
+                              className="inline-flex items-center gap-1.5 font-['Geist_Mono',monospace] text-[11px] text-black hover:underline transition-colors"
+                            >
+                              View Application
+                              <ArrowRight className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
