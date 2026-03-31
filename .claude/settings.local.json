@@ -44,7 +44,10 @@
       "Bash(find /c/Users/Rohan/Downloads/roboticsapps2 -type f \\\\\\( -name \"*.md\" -o -name \"README*\" -o -name \"*.txt\" \\\\\\) 2>/dev/null | head -10)",
       "Bash(cd \"C:\\\\Users\\\\Rohan\\\\Downloads\\\\roboticsapps2\" && npx -p typescript tsc --noEmit --pretty 2>&1 | head -40)",
       "Bash(cd \"C:\\\\Users\\\\Rohan\\\\Downloads\\\\roboticsapps2\" && ./node_modules/.bin/tsc --noEmit 2>&1 | head -40)",
-      "Bash(cat /c/Users/Rohan/Downloads/service-account.json | tr -d '\\\\n' | xargs -0 -I {} npx supabase secrets set \"GOOGLE_SERVICE_ACCOUNT_JSON={}\" 2>&1)"
+      "Bash(cat /c/Users/Rohan/Downloads/service-account.json | tr -d '\\\\n' | xargs -0 -I {} npx supabase secrets set \"GOOGLE_SERVICE_ACCOUNT_JSON={}\" 2>&1)",
+      "Bash(npm run:*)",
+      "Bash(xargs cat:*)",
+      "Bash(npm test:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
