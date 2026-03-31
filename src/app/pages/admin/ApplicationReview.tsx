@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, RotateCw } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/AuthContext";
+import { useSettings } from "../../lib/hooks";
 import { STATUS_LABELS } from "../../data";
 import { cn } from "../../lib/utils";
 
@@ -39,6 +41,12 @@ export function AdminApplicationReview() {
     const [updatingPositionId, setUpdatingPositionId] = useState<string | null>(
         null,
     );
+    const [aiResults, setAiResults] = useState<any[]>([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const { settings } = useSettings();
+    const aiEnabled =
+        settings.ai_analysis_enabled === true ||
+        settings.ai_analysis_enabled === "true";
 
     const RUBRIC = [
         { id: "experience", label: "Relevant Experience" },
@@ -61,12 +69,13 @@ export function AdminApplicationReview() {
 
             if (app) {
                 // Fetch all related data in parallel
-                const [profResult, actsResult, respsResult, honsResult, revsResult] = await Promise.all([
+                const [profResult, actsResult, respsResult, honsResult, revsResult, aiResult] = await Promise.all([
                     supabase.from("profiles").select("*").eq("id", app.user_id).single(),
                     supabase.from("activities").select("*").eq("user_id", app.user_id).order("sort_order"),
                     supabase.from("responses").select("*, questions(prompt)").eq("application_id", app.id),
                     supabase.from("honors").select("*").eq("user_id", app.user_id).order("sort_order"),
                     supabase.from("reviews").select("*, profiles:reviewer_id(first_name, last_name, email)").eq("application_id", app.id).order("updated_at", { ascending: false }),
+                    supabase.from("ai_analysis_results").select("*").eq("application_id", app.id),
                 ]);
 
                 setApplicantProfile(profResult.data);
@@ -74,6 +83,7 @@ export function AdminApplicationReview() {
                 setResponses(respsResult.data || []);
                 setHonors(honsResult.data || []);
                 setAllReviews(revsResult.data || []);
+                setAiResults(aiResult.data || []);
 
                 // Set current admin's scores/notes into edit state
                 if (adminProfile && revsResult.data) {
@@ -502,6 +512,143 @@ export function AdminApplicationReview() {
                                         </p>
                                     </div>
                                 ))}
+                            </section>
+                        )}
+
+                        {/* AI Analysis */}
+                        {aiEnabled && (
+                            <section className="bg-white border border-[#dbe0ec]">
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-[#dbe0ec]">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-3.5 h-3.5 text-[#6c6c6c]" />
+                                        <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] uppercase tracking-[0.08em]">
+                                            AI Analysis
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {aiResults.length > 0 && (() => {
+                                            const avg = aiResults.reduce((s, r) => s + r.similarity_score, 0) / aiResults.length;
+                                            return (
+                                                <span className={cn(
+                                                    "font-['Geist_Mono',monospace] text-[11px] font-medium",
+                                                    avg >= 0.8 ? "text-red-600" : avg >= 0.6 ? "text-orange-500" : avg >= 0.4 ? "text-amber-500" : "text-black"
+                                                )}>
+                                                    Avg: {(avg * 100).toFixed(0)}%
+                                                </span>
+                                            );
+                                        })()}
+                                        <button
+                                            onClick={async () => {
+                                                setAiLoading(true);
+                                                try {
+                                                    const { data, error } = await supabase.functions.invoke("ai-analysis", {
+                                                        body: { applicationId: application.id, provider: "gemini" },
+                                                    });
+                                                    if (error) throw error;
+                                                    if (data?.error) throw new Error(data.error);
+                                                    const { data: updated } = await supabase
+                                                        .from("ai_analysis_results")
+                                                        .select("*")
+                                                        .eq("application_id", application.id);
+                                                    setAiResults(updated || []);
+                                                    toast.success("AI analysis complete");
+                                                } catch (e: any) {
+                                                    toast.error(`Analysis failed: ${e.message}`);
+                                                }
+                                                setAiLoading(false);
+                                            }}
+                                            disabled={aiLoading}
+                                            className="flex items-center gap-1.5 px-2.5 py-1 border border-[#dbe0ec] hover:border-black transition-colors disabled:opacity-50"
+                                        >
+                                            {aiLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin text-[#6c6c6c]" />
+                                            ) : (
+                                                <RotateCw className="w-3 h-3 text-[#6c6c6c]" />
+                                            )}
+                                            <span className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c]">
+                                                {aiResults.length > 0 ? "Re-run" : "Run Analysis"}
+                                            </span>
+                                        </button>
+                                        <span className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c]">
+                                            006
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {aiResults.length === 0 && !aiLoading ? (
+                                    <div className="px-6 py-8 text-center">
+                                        <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-sm">
+                                            No analysis results yet. Click "Run Analysis" to generate AI comparisons.
+                                        </p>
+                                    </div>
+                                ) : aiLoading && aiResults.length === 0 ? (
+                                    <div className="px-6 py-8 flex items-center justify-center gap-3">
+                                        <Loader2 className="w-4 h-4 animate-spin text-[#6c6c6c]" />
+                                        <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-sm">
+                                            Generating AI responses and computing similarity...
+                                        </p>
+                                    </div>
+                                ) : (
+                                    responses.map((resp, i) => {
+                                        const aiResult = aiResults.find((r) => r.question_id === resp.question_id);
+                                        if (!aiResult) return null;
+                                        const score = aiResult.similarity_score;
+                                        return (
+                                            <div
+                                                key={`ai-${resp.id}`}
+                                                className={cn(
+                                                    "px-6 py-5",
+                                                    i !== 0 && "border-t border-[#dbe0ec]",
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <p className="font-['Radio_Canada_Big',sans-serif] font-medium text-black text-sm">
+                                                        {resp.questions?.prompt || "Question"}
+                                                    </p>
+                                                    <span className={cn(
+                                                        "font-['Geist_Mono',monospace] text-[11px] font-medium",
+                                                        score >= 0.8 ? "text-red-600" : score >= 0.6 ? "text-orange-500" : score >= 0.4 ? "text-amber-500" : "text-black"
+                                                    )}>
+                                                        {(score * 100).toFixed(0)}% similar
+                                                    </span>
+                                                </div>
+                                                {/* Similarity bar */}
+                                                <div className="h-1 bg-[#dbe0ec] mb-4">
+                                                    <div
+                                                        className={cn(
+                                                            "h-1 transition-all",
+                                                            score >= 0.8 ? "bg-red-600" : score >= 0.6 ? "bg-orange-500" : score >= 0.4 ? "bg-amber-500" : "bg-black"
+                                                        )}
+                                                        style={{ width: `${score * 100}%` }}
+                                                    />
+                                                </div>
+                                                {/* Side-by-side comparison */}
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] uppercase tracking-[0.06em] mb-2">
+                                                            Applicant Response
+                                                        </p>
+                                                        <p className="font-['Source_Serif_4',serif] text-black text-sm leading-[1.6] tracking-[-0.2px] bg-[#f9f9f7] border border-[#dbe0ec] px-4 py-3 whitespace-pre-wrap">
+                                                            {resp.content || "(No response)"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] uppercase tracking-[0.06em] mb-2">
+                                                            AI-Generated Response
+                                                        </p>
+                                                        <p className="font-['Source_Serif_4',serif] text-black text-sm leading-[1.6] tracking-[-0.2px] bg-white border border-[#dbe0ec] px-4 py-3 whitespace-pre-wrap">
+                                                            {aiResult.generated_response}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {/* Meta */}
+                                                <p className="font-['Geist_Mono',monospace] text-[9px] text-[#6c6c6c] mt-2">
+                                                    {aiResult.provider}/{aiResult.model} · {new Date(aiResult.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                                                </p>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </section>
                         )}
                     </div>

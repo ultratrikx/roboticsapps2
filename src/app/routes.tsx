@@ -27,6 +27,7 @@ import { AdminCommunications } from "./pages/admin/Communications";
 import { AdminInterviews } from "./pages/admin/Interviews";
 import { AdminQuestions } from "./pages/admin/Questions";
 import { AdminResponses } from "./pages/admin/Responses";
+import { AdminAIAnalysis } from "./pages/admin/AIAnalysis";
 
 export const router = createBrowserRouter([
   {
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
       { path: "interviews", Component: AdminInterviews },
       { path: "questions", Component: AdminQuestions },
       { path: "responses", Component: AdminResponses },
+      { path: "ai-analysis", Component: AdminAIAnalysis },
     ],
   },
 ]);

@@ -9,6 +9,7 @@ import {
   LogOut,
   PenTool,
   FileText,
+  Sparkles,
 } from "lucide-react";
 
 const ADMIN_NAV = [
@@ -17,7 +18,8 @@ const ADMIN_NAV = [
   { path: "/admin/communications", icon: MessageSquare, label: "Communications", num: "03" },
   { path: "/admin/questions", icon: PenTool, label: "Questions", num: "04" },
   { path: "/admin/responses", icon: FileText, label: "Responses", num: "05" },
-  { path: "/admin/settings", icon: Settings, label: "Settings", num: "06" },
+  { path: "/admin/ai-analysis", icon: Sparkles, label: "AI Analysis", num: "06" },
+  { path: "/admin/settings", icon: Settings, label: "Settings", num: "07" },
 ];
 
 export function AdminLayout() {

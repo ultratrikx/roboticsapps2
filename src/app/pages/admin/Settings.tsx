@@ -18,6 +18,7 @@ export function AdminSettings() {
 
     const [appWindowOpen, setAppWindowOpen] = useState(false);
     const [interviewsOpen, setInterviewsOpen] = useState(false);
+    const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
     const [limitMode, setLimitMode] = useState<"characters" | "words">(
         "characters",
     );
@@ -39,6 +40,10 @@ export function AdminSettings() {
             setInterviewsOpen(
                 settings.interview_scheduling_open === true ||
                     settings.interview_scheduling_open === "true",
+            );
+            setAiAnalysisEnabled(
+                settings.ai_analysis_enabled === true ||
+                    settings.ai_analysis_enabled === "true",
             );
             setLimitMode(
                 settings.limit_mode === "words" ? "words" : "characters",
@@ -117,6 +122,7 @@ export function AdminSettings() {
         try {
             await updateSetting("application_window_open", appWindowOpen);
             await updateSetting("interview_scheduling_open", interviewsOpen);
+            await updateSetting("ai_analysis_enabled", aiAnalysisEnabled);
             await updateSetting("limit_mode", limitMode);
             await updateSetting("application_deadline", deadline);
             await updateSetting("interview_window", interviewWindow);
@@ -141,7 +147,7 @@ export function AdminSettings() {
             {/* Header */}
             <header className="border-b border-[#dbe0ec] pb-7">
                 <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] uppercase tracking-[0.1em] mb-3">
-                    Admin — 05
+                    Admin — 07
                 </p>
                 <h1
                     className="font-['Source_Serif_4',serif] text-[40px] text-black tracking-[-1.2px]"
@@ -195,6 +201,12 @@ export function AdminSettings() {
                             desc: "Enable applicants to book interview slots.",
                             value: interviewsOpen,
                             setter: setInterviewsOpen,
+                        },
+                        {
+                            label: "AI Response Analysis",
+                            desc: "Enable AI-powered similarity detection for submitted applications.",
+                            value: aiAnalysisEnabled,
+                            setter: setAiAnalysisEnabled,
                         },
                     ].map((item, i) => (
                         <div
