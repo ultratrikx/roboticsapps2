@@ -300,10 +300,10 @@ export function AdminSettings() {
                     <div>
                         <label className={labelCls}>Application Deadline</label>
                         <input
+                            type="date"
                             className={fieldCls}
                             value={deadline}
                             onChange={(e) => setDeadline(e.target.value)}
-                            placeholder="e.g. April 30, 2026"
                         />
                     </div>
                     <div>
@@ -318,10 +318,10 @@ export function AdminSettings() {
                     <div>
                         <label className={labelCls}>Decisions Date</label>
                         <input
+                            type="date"
                             className={fieldCls}
                             value={decisionsDate}
                             onChange={(e) => setDecisionsDate(e.target.value)}
-                            placeholder="e.g. May 19, 2026"
                         />
                     </div>
                 </div>

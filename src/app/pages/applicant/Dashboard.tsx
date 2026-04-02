@@ -358,11 +358,19 @@ export function ApplicantDashboard() {
           Key Dates
         </h2>
         {(() => {
+          const formatDateDisplay = (raw: string): string => {
+            try {
+              const d = parseISO(raw);
+              if (!isNaN(d.getTime())) return format(d, "MMMM d, yyyy");
+            } catch { /* fall through */ }
+            return raw;
+          };
+
           const keyDates = [
             { raw: settings.application_deadline || "TBD", label: "Application Deadline", desc: "Submit all materials for the 2026-2027 cycle.", type: "deadline" as const },
             { raw: settings.interview_window || "TBD", label: "Interview Window", desc: "If selected, you will be invited to book a slot.", type: "interview" as const },
             { raw: settings.decisions_date || "TBD", label: "Decisions Released", desc: "Check your portal for updates.", type: "decision" as const },
-          ];
+          ].map((kd) => ({ ...kd, display: kd.raw === "TBD" ? "TBD" : formatDateDisplay(kd.raw) }));
 
           const tryParse = (s: string): Date | null => {
             try {
@@ -466,7 +474,7 @@ export function ApplicantDashboard() {
                       )}
                     </div>
                     <div>
-                      <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] mb-0.5">{item.raw}</p>
+                      <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] mb-0.5">{item.display}</p>
                       <p className="font-['Radio_Canada_Big',sans-serif] font-medium text-black text-sm">{item.label}</p>
                       <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-sm mt-0.5">{item.desc}</p>
                     </div>

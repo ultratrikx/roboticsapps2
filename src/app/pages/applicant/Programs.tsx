@@ -3,10 +3,22 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Search, Check, Plus, Minus, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { parseISO, format } from "date-fns";
 import { useAuth } from "../../lib/AuthContext";
 import { usePositions, useApplication, useSettings } from "../../lib/hooks";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
+
+function formatDeadline(raw: string | undefined | null): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    const d = parseISO(raw);
+    if (isNaN(d.getTime())) return raw; // fallback to raw string if not ISO
+    return format(d, "MMMM d, yyyy");
+  } catch {
+    return raw;
+  }
+}
 
 export function ApplicantPrograms() {
   const { profile } = useAuth();
@@ -20,7 +32,26 @@ export function ApplicantPrograms() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [rankUpdating, setRankUpdating] = useState<string | null>(null);
 
-  const appWindowOpen = settings.application_window_open === true || settings.application_window_open === "true";
+  const manualWindowOpen = settings.application_window_open === true || settings.application_window_open === "true";
+
+  // Also check if we're past the deadline date
+  const deadlineStr = typeof settings.application_deadline === "string" ? settings.application_deadline : null;
+  const deadlinePassed = (() => {
+    if (!deadlineStr) return false;
+    try {
+      const d = parseISO(deadlineStr);
+      if (isNaN(d.getTime())) return false;
+      // Deadline is end-of-day, so add a day buffer
+      const endOfDeadline = new Date(d);
+      endOfDeadline.setHours(23, 59, 59, 999);
+      return new Date() > endOfDeadline;
+    } catch {
+      return false;
+    }
+  })();
+
+  const appWindowOpen = manualWindowOpen && !deadlinePassed;
+  const deadlineDisplay = formatDeadline(deadlineStr);
 
   const appliedPositionIds = new Set(
     application?.application_positions?.map((ap: any) => ap.position_id) ?? []
@@ -202,8 +233,15 @@ export function ApplicantPrograms() {
             Executive<br />Positions
           </h1>
           <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-lg tracking-[-0.3px] mt-2">
-            The application window is currently closed. Check back when applications open.
+            {deadlinePassed && deadlineDisplay
+              ? `The application deadline (${deadlineDisplay}) has passed. Applications are now closed.`
+              : "The application window is currently closed. Check back when applications open."}
           </p>
+          {!deadlinePassed && deadlineDisplay && (
+            <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] mt-3">
+              Deadline: {deadlineDisplay}
+            </p>
+          )}
         </header>
       </div>
     );
