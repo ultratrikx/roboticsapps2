@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, DragEvent } from "react";
 import { Link } from "react-router";
-import { Search, Loader2, Download, X, Plus } from "lucide-react";
+import { Search, Loader2, Download, X, Plus, Trash2 } from "lucide-react";
 import { useAllApplications, usePositions } from "../../lib/hooks";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
@@ -162,6 +162,10 @@ export function AdminDashboard() {
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
+    const [deleteModal, setDeleteModal] = useState<{ appId: string; appName: string } | null>(null);
+    const [deletePassword, setDeletePassword] = useState("");
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const handleQuickStatus = async (appId: string, newStatus: string) => {
         setUpdating(appId);
@@ -177,6 +181,29 @@ export function AdminDashboard() {
             refetch();
         }
         setUpdating(null);
+    };
+
+    const handleDeleteApplication = async () => {
+        if (deletePassword !== "wosswossshowthemwhosboss") {
+            setDeleteError("Incorrect password. Please try again.");
+            return;
+        }
+        if (!deleteModal) return;
+        setDeleting(true);
+        setDeleteError(null);
+        const { error } = await supabase
+            .from("applications")
+            .delete()
+            .eq("id", deleteModal.appId);
+        if (error) {
+            setDeleteError(`Failed to delete: ${error.message}`);
+            setDeleting(false);
+            return;
+        }
+        setDeleteModal(null);
+        setDeletePassword("");
+        setDeleting(false);
+        refetch();
     };
 
     const filteredApps = applications.filter((app: any) => {
@@ -621,6 +648,7 @@ export function AdminDashboard() {
                                                 : "—"}
                                         </td>
                                         <td className="px-4 py-4">
+                                            <div className="flex items-center gap-2">
                                             {isUpdating ? (
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6c6c6c]" />
                                             ) : (
@@ -644,6 +672,18 @@ export function AdminDashboard() {
                                                     ))}
                                                 </select>
                                             )}
+                                            <button
+                                                onClick={() => {
+                                                    setDeletePassword("");
+                                                    setDeleteError(null);
+                                                    setDeleteModal({ appId: app.id, appName: name });
+                                                }}
+                                                className="text-[#6c6c6c] hover:text-red-600 transition-colors"
+                                                title="Delete application"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -659,6 +699,7 @@ export function AdminDashboard() {
                     {COLUMNS.map((col) => {
                         const columnApps = appsByStatus[col.key] || [];
                         const isOver = dragOverColumn === col.key;
+
 
                         return (
                             <div
@@ -770,6 +811,76 @@ export function AdminDashboard() {
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                    <div className="bg-white border border-[#dbe0ec] w-full max-w-sm mx-4">
+                        <div className="px-6 py-4 border-b border-[#dbe0ec]">
+                            <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] uppercase tracking-[0.08em]">
+                                Delete Application
+                            </p>
+                        </div>
+                        <div className="px-6 py-5 space-y-4">
+                            <p className="font-['Source_Serif_4',serif] text-black text-sm leading-relaxed">
+                                You are about to permanently delete{" "}
+                                <span className="font-medium">{deleteModal.appName}</span>'s application. This cannot be undone.
+                            </p>
+                            <div>
+                                <label className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] uppercase tracking-[0.06em] block mb-2">
+                                    Admin Password
+                                </label>
+                                <input
+                                    type="password"
+                                    value={deletePassword}
+                                    onChange={(e) => {
+                                        setDeletePassword(e.target.value);
+                                        setDeleteError(null);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleDeleteApplication();
+                                    }}
+                                    placeholder="Enter password to confirm"
+                                    className="w-full border border-[#dbe0ec] bg-[#f9f9f7] px-4 py-3 font-['Geist_Mono',monospace] text-[12px] text-black placeholder-[#6c6c6c] outline-none focus:border-black transition-colors"
+                                    autoFocus
+                                />
+                                {deleteError && (
+                                    <p className="font-['Geist_Mono',monospace] text-[11px] text-red-600 mt-2">
+                                        {deleteError}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="px-6 pb-5 flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setDeleteModal(null);
+                                    setDeletePassword("");
+                                    setDeleteError(null);
+                                }}
+                                disabled={deleting}
+                                className="flex-1 border border-[#dbe0ec] py-2.5 font-['Geist_Mono',monospace] text-[12px] text-[#6c6c6c] hover:border-black hover:text-black transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteApplication}
+                                disabled={deleting || !deletePassword}
+                                className="flex-1 bg-red-600 border border-red-600 py-2.5 font-['Geist_Mono',monospace] text-[12px] text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {deleting ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <>
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Delete
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

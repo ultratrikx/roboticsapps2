@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router";
-import { ArrowLeft, Loader2, Sparkles, RotateCw } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router";
+import { ArrowLeft, Loader2, Sparkles, RotateCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/AuthContext";
@@ -25,6 +25,7 @@ const POSITION_STATUS_LABELS: Record<string, string> = {
 
 export function AdminApplicationReview() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const { profile: adminProfile } = useAuth();
     const [application, setApplication] = useState<any>(null);
     const [applicantProfile, setApplicantProfile] = useState<any>(null);
@@ -43,6 +44,10 @@ export function AdminApplicationReview() {
     );
     const [aiResults, setAiResults] = useState<any[]>([]);
     const [aiLoading, setAiLoading] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deletePassword, setDeletePassword] = useState("");
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
     const { settings } = useSettings();
     const aiEnabled =
         settings.ai_analysis_enabled === true ||
@@ -199,6 +204,27 @@ export function AdminApplicationReview() {
         setUpdatingPositionId(null);
     };
 
+    const handleDeleteApplication = async () => {
+        if (deletePassword !== "wosswossshowthemwhosboss") {
+            setDeleteError("Incorrect password. Please try again.");
+            return;
+        }
+        if (!application) return;
+        setDeleting(true);
+        setDeleteError(null);
+        const { error: err } = await supabase
+            .from("applications")
+            .delete()
+            .eq("id", application.id);
+        if (err) {
+            setDeleteError(`Failed to delete: ${err.message}`);
+            setDeleting(false);
+            return;
+        }
+        toast.success("Application deleted.");
+        navigate("/admin");
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-24">
@@ -228,6 +254,7 @@ export function AdminApplicationReview() {
         .join(", ");
 
     return (
+        <>
         <div className="h-[calc(100vh-3.5rem)] flex flex-col -m-8">
             {/* Header */}
             <header className="h-14 px-6 flex items-center justify-between border-b border-[#dbe0ec] bg-white shrink-0">
@@ -933,6 +960,19 @@ export function AdminApplicationReview() {
 
                     <div className="p-5 border-t border-[#dbe0ec] space-y-3 bg-[#f9f9f7]">
                         <button
+                            onClick={() => {
+                                setDeletePassword("");
+                                setDeleteError(null);
+                                setDeleteModalOpen(true);
+                            }}
+                            className="w-full border border-[#dbe0ec] flex gap-2 items-center justify-center px-5 py-2.5 hover:border-red-400 hover:text-red-600 transition-colors text-[#6c6c6c]"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="font-['Geist_Mono',monospace] text-[12px] whitespace-nowrap leading-none">
+                                Delete Application
+                            </span>
+                        </button>
+                        <button
                             onClick={handleSaveReview}
                             disabled={saving}
                             className="w-full bg-black flex gap-[10px] items-center justify-center px-5 py-3.5 hover:bg-zinc-800 transition-colors disabled:opacity-50"
@@ -1126,5 +1166,78 @@ export function AdminApplicationReview() {
                 </div>
             </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {deleteModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <div className="bg-white border border-[#dbe0ec] w-full max-w-sm mx-4">
+                    <div className="px-6 py-4 border-b border-[#dbe0ec] flex items-center justify-between">
+                        <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] uppercase tracking-[0.08em]">
+                            Delete Application
+                        </p>
+                        <button
+                            onClick={() => setDeleteModalOpen(false)}
+                            className="text-[#6c6c6c] hover:text-black transition-colors"
+                        >
+                            <ArrowLeft className="w-3.5 h-3.5 rotate-[135deg]" />
+                        </button>
+                    </div>
+                    <div className="px-6 py-5 space-y-4">
+                        <p className="font-['Source_Serif_4',serif] text-black text-sm leading-relaxed">
+                            You are about to permanently delete{" "}
+                            <span className="font-medium">{applicantName}</span>'s application. This cannot be undone.
+                        </p>
+                        <div>
+                            <label className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] uppercase tracking-[0.06em] block mb-2">
+                                Admin Password
+                            </label>
+                            <input
+                                type="password"
+                                value={deletePassword}
+                                onChange={(e) => {
+                                    setDeletePassword(e.target.value);
+                                    setDeleteError(null);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleDeleteApplication();
+                                }}
+                                placeholder="Enter password to confirm"
+                                className="w-full border border-[#dbe0ec] bg-[#f9f9f7] px-4 py-3 font-['Geist_Mono',monospace] text-[12px] text-black placeholder-[#6c6c6c] outline-none focus:border-black transition-colors"
+                                autoFocus
+                            />
+                            {deleteError && (
+                                <p className="font-['Geist_Mono',monospace] text-[11px] text-red-600 mt-2">
+                                    {deleteError}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="px-6 pb-5 flex gap-3">
+                        <button
+                            onClick={() => setDeleteModalOpen(false)}
+                            disabled={deleting}
+                            className="flex-1 border border-[#dbe0ec] py-2.5 font-['Geist_Mono',monospace] text-[12px] text-[#6c6c6c] hover:border-black hover:text-black transition-colors disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleDeleteApplication}
+                            disabled={deleting || !deletePassword}
+                            className="flex-1 bg-red-600 border border-red-600 py-2.5 font-['Geist_Mono',monospace] text-[12px] text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {deleting ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
