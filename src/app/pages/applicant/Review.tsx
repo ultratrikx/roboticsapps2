@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/AuthContext";
-import { useApplication, useQuestions } from "../../lib/hooks";
+import { useApplication, useQuestions, useDeadlinePassed } from "../../lib/hooks";
 import { supabase } from "../../lib/supabase";
 import { cn, formatList } from "../../lib/utils";
 import { genericNotificationEmail } from "../../lib/email-templates";
@@ -24,6 +24,7 @@ export function ApplicantReview() {
         refetch: refetchApps,
     } = useApplication(profile?.id);
     const { questions, loading: qLoading } = useQuestions();
+    const deadlinePassed = useDeadlinePassed();
     const navigate = useNavigate();
 
     const [responses, setResponses] = useState<Record<string, string>>({});
@@ -35,6 +36,7 @@ export function ApplicantReview() {
         new Set(),
     );
     const [submitted, setSubmitted] = useState(false);
+    const [updating, setUpdating] = useState(false);
 
     const applicationPositions = application?.application_positions || [];
 
@@ -181,6 +183,25 @@ export function ApplicantReview() {
                 .catch(console.error);
         }
         setSubmitting(false);
+    };
+
+    const handleUpdate = async () => {
+        setUpdating(true);
+        const { error } = await supabase
+            .from("applications")
+            .update({
+                submitted_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", application.id);
+
+        if (error) {
+            toast.error(`Failed to update: ${error.message}`);
+        } else {
+            toast.success("Application updated successfully!");
+            await refetchApps();
+        }
+        setUpdating(false);
     };
 
     if (loading || appsLoading || qLoading) {
@@ -555,18 +576,43 @@ export function ApplicantReview() {
             <section className="border border-[#dbe0ec]">
                 <div className="px-6 py-5 bg-[#f9f9f7]">
                     {isAlreadySubmitted ? (
-                        <div className="flex items-center gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-black" />
-                            <div>
-                                <p className="font-['Radio_Canada_Big',sans-serif] font-medium text-black text-sm">
-                                    Application Submitted
-                                </p>
-                                <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-sm mt-0.5">
-                                    {application.submitted_at
-                                        ? `Submitted on ${new Date(application.submitted_at).toLocaleDateString()}`
-                                        : "Your application has been submitted."}
-                                </p>
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-black" />
+                                <div>
+                                    <p className="font-['Radio_Canada_Big',sans-serif] font-medium text-black text-sm">
+                                        Application Submitted
+                                    </p>
+                                    <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-sm mt-0.5">
+                                        {application.submitted_at
+                                            ? `Submitted on ${new Date(application.submitted_at).toLocaleDateString()}`
+                                            : "Your application has been submitted."}
+                                    </p>
+                                </div>
                             </div>
+                            {!deadlinePassed && (
+                                <>
+                                    <p className="font-['Source_Serif_4',serif] text-[#6c6c6c] text-sm mt-4">
+                                        Made changes? Click below to confirm your latest edits are saved.
+                                    </p>
+                                    <button
+                                        onClick={handleUpdate}
+                                        disabled={updating}
+                                        className="bg-black flex gap-[10px] items-center justify-center px-6 py-4 hover:bg-zinc-800 transition-colors disabled:opacity-50 w-full mt-3"
+                                    >
+                                        {updating ? (
+                                            <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                        ) : (
+                                            <>
+                                                <div className="bg-white shrink-0 w-[5px] h-[5px]" />
+                                                <span className="font-['Geist_Mono',monospace] text-[13px] text-white whitespace-nowrap leading-none">
+                                                    Update Application
+                                                </span>
+                                            </>
+                                        )}
+                                    </button>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <>
