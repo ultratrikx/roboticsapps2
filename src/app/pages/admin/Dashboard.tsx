@@ -175,6 +175,7 @@ export function AdminDashboard() {
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
+    const [showDrafts, setShowDrafts] = useState(false);
     const [deleteModal, setDeleteModal] = useState<{ appId: string; appName: string } | null>(null);
     const [deletePassword, setDeletePassword] = useState("");
     const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -562,6 +563,19 @@ export function AdminDashboard() {
                                 Board
                             </button>
                         </div>
+                        {view === "kanban" && (
+                            <button
+                                onClick={() => setShowDrafts((v) => !v)}
+                                className={cn(
+                                    "px-3 py-1.5 font-['Geist_Mono',monospace] text-[11px] border transition-colors",
+                                    showDrafts
+                                        ? "bg-black border-black text-white"
+                                        : "border-[#dbe0ec] text-[#6c6c6c] hover:border-black hover:text-black",
+                                )}
+                            >
+                                {showDrafts ? "Hide drafts" : "Show drafts"}
+                            </button>
+                        )}
                         <span className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c] border border-[#dbe0ec] px-2.5 py-1">
                             {applications.length} total
                         </span>
@@ -741,7 +755,7 @@ export function AdminDashboard() {
             {/* Kanban Board */}
             {view === "kanban" && (
                 <div className="flex flex-wrap gap-4 overflow-x-auto pb-4">
-                    {COLUMNS.map((col) => {
+                    {COLUMNS.filter((col) => showDrafts || col.key !== "draft").map((col) => {
                         const columnApps = appsByStatus[col.key] || [];
                         const isOver = dragOverColumn === col.key;
 
