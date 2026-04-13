@@ -52,19 +52,26 @@ export function AdminRankings() {
                 .eq("position_id", selectedPositionId)
                 .order("created_at");
 
-            if (!appPositions || appPositions.length === 0) {
+            // Only show applicants in the active review stages
+            const eligible = (appPositions || []).filter(
+                (ap: any) =>
+                    ap.applications?.status === "under_review" ||
+                    ap.applications?.status === "interview_scheduled"
+            );
+
+            if (eligible.length === 0) {
                 setRankData([]);
                 setRankLoading(false);
                 return;
             }
 
             const notes: Record<string, string> = {};
-            for (const ap of appPositions) {
+            for (const ap of eligible) {
                 notes[ap.id] = ap.ranking_note || "";
             }
             setEditingNote(notes);
 
-            const appIds = appPositions.map((ap: any) => ap.application_id).filter(Boolean);
+            const appIds = eligible.map((ap: any) => ap.application_id).filter(Boolean);
             const { data: reviews } = await supabase
                 .from("reviews")
                 .select("application_id, scores, position_scores")
@@ -76,7 +83,7 @@ export function AdminRankings() {
                 reviewsByApp[r.application_id].push(r);
             }
 
-            const ranked = appPositions.map((ap: any) => {
+            const ranked = eligible.map((ap: any) => {
                 const appReviews = reviewsByApp[ap.application_id] || [];
 
                 const posAvgs: number[] = [];
@@ -268,7 +275,7 @@ export function AdminRankings() {
                     ) : rankData.length === 0 ? (
                         <div className="border border-[#dbe0ec] px-6 py-12 text-center">
                             <p className="font-['Geist_Mono',monospace] text-[11px] text-[#6c6c6c]">
-                                No applicants for this position yet.
+                                No applicants in review or interview for this position.
                             </p>
                         </div>
                     ) : (
