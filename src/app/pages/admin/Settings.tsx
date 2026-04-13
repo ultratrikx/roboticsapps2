@@ -19,8 +19,7 @@ export function AdminSettings() {
     const [maintenanceMode, setMaintenanceMode] = useState(false);
     const [appWindowOpen, setAppWindowOpen] = useState(false);
     const [interviewsOpen, setInterviewsOpen] = useState(false);
-    const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
-    const [limitMode, setLimitMode] = useState<"characters" | "words">(
+const [limitMode, setLimitMode] = useState<"characters" | "words">(
         "characters",
     );
     const [deadline, setDeadline] = useState("");
@@ -46,11 +45,7 @@ export function AdminSettings() {
                 settings.interview_scheduling_open === true ||
                     settings.interview_scheduling_open === "true",
             );
-            setAiAnalysisEnabled(
-                settings.ai_analysis_enabled === true ||
-                    settings.ai_analysis_enabled === "true",
-            );
-            setLimitMode(
+setLimitMode(
                 settings.limit_mode === "words" ? "words" : "characters",
             );
             setDeadline(
@@ -127,8 +122,7 @@ export function AdminSettings() {
         try {
             await updateSetting("application_window_open", appWindowOpen);
             await updateSetting("interview_scheduling_open", interviewsOpen);
-            await updateSetting("ai_analysis_enabled", aiAnalysisEnabled);
-            await updateSetting("limit_mode", limitMode);
+await updateSetting("limit_mode", limitMode);
             await updateSetting("application_deadline", deadline);
             await updateSetting("interview_window", interviewWindow);
             await updateSetting("decisions_date", decisionsDate);
@@ -247,13 +241,7 @@ export function AdminSettings() {
                             value: interviewsOpen,
                             setter: setInterviewsOpen,
                         },
-                        {
-                            label: "AI Response Analysis",
-                            desc: "Enable AI-powered similarity detection for submitted applications.",
-                            value: aiAnalysisEnabled,
-                            setter: setAiAnalysisEnabled,
-                        },
-                    ].map((item, i) => (
+].map((item, i) => (
                         <div
                             key={item.label}
                             className={`flex items-center justify-between px-6 py-5 ${i !== 0 ? "border-t border-[#dbe0ec]" : ""}`}
