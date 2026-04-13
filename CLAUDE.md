@@ -67,9 +67,8 @@ Located in `supabase/functions/`:
 
 - **send-email**: Sends emails via Resend API. Admin-only. Requires `RESEND_API_KEY` secret. Accepts `{ to, subject, html }`.
 - **create-interview-meeting**: Creates Google Calendar events with Meet links. Requires `GOOGLE_SERVICE_ACCOUNT_JSON` secret. Sends ICS calendar invite via Resend. Stores `meet_link` and `calendar_event_id` in `interview_bookings`.
-- **ai-analysis**: Scores applications using the Claude API. Stores scores in `position_scores` JSONB on the `reviews` table.
 
-All functions require Bearer token auth and return JSON with CORS headers.
+Both functions require Bearer token auth and return JSON with CORS headers.
 
 ## Key Config Files
 

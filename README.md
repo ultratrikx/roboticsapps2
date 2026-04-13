@@ -22,7 +22,6 @@ Live at **https://applications.wossrobotics.ca**
 - **Application dashboard** — overview statistics, timeline, and per-position breakdowns
 - **Detailed review** — read each applicant's full submission with inline scoring per position
 - **Per-position scoring** — score applicants on experience, essays, leadership, and fit for each position they applied to
-- **AI-assisted analysis** — Claude API scores essays and generates position-specific feedback
 - **Rankings** — sortable, filterable position-wise ranking table with elimination toggles and bulk accept/reject
 - **Interview management** — create Google Calendar events with Meet links; send ICS invites via email
 - **Communications** — send bulk or individual emails using pre-built branded templates
@@ -42,7 +41,6 @@ Live at **https://applications.wossrobotics.ca**
 | Email | Resend API |
 | Calendar | Google Calendar API + Google Meet |
 | Interview scheduling | Cal.com |
-| AI scoring | Anthropic Claude API |
 | Deployment | Vercel (frontend), Supabase Cloud (backend) |
 | Testing | Vitest, Testing Library |
 
@@ -113,7 +111,7 @@ src/
 │       ├── applicant/         # 9 applicant pages
 │       └── admin/             # 8 admin pages
 supabase/
-├── functions/                 # Deno edge functions (send-email, create-interview-meeting, ai-analysis)
+├── functions/                 # Deno edge functions (send-email, create-interview-meeting)
 ├── migrations/                # Postgres schema migrations
 └── config.toml
 ```
@@ -155,7 +153,6 @@ npm run test:coverage # With coverage report
 ```bash
 npx supabase functions deploy send-email
 npx supabase functions deploy create-interview-meeting
-npx supabase functions deploy ai-analysis
 
 # Set required secrets
 npx supabase secrets set RESEND_API_KEY=...
