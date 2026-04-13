@@ -18,8 +18,16 @@ function avgOf(s: Record<string, number>): number | null {
     return vals.reduce((a, b) => a + b, 0) / vals.length;
 }
 
+function isAcceptedApp(item: any): boolean {
+    return item.ap.applications?.status === "accepted";
+}
+
 function sortByScore(data: any[]): any[] {
     return [...data].sort((a, b) => {
+        const aAccepted = isAcceptedApp(a);
+        const bAccepted = isAcceptedApp(b);
+        if (aAccepted && !bAccepted) return -1;
+        if (!aAccepted && bAccepted) return 1;
         if (a.ap.eliminated && !b.ap.eliminated) return 1;
         if (!a.ap.eliminated && b.ap.eliminated) return -1;
         const scoreA = a.positionAvg ?? a.overallAvg ?? -1;
@@ -72,7 +80,8 @@ export function AdminRankings() {
             const eligible = (appPositions || []).filter(
                 (ap: any) =>
                     ap.applications?.status === "under_review" ||
-                    ap.applications?.status === "interview_scheduled"
+                    ap.applications?.status === "interview_scheduled" ||
+                    ap.applications?.status === "accepted"
             );
 
             if (eligible.length === 0) {
@@ -149,6 +158,10 @@ export function AdminRankings() {
             const hasManualOrder = eligible.some((ap: any) => ap.rank_order != null);
             if (hasManualOrder) {
                 computed.sort((a, b) => {
+                    const aAccepted = isAcceptedApp(a);
+                    const bAccepted = isAcceptedApp(b);
+                    if (aAccepted && !bAccepted) return -1;
+                    if (!aAccepted && bAccepted) return 1;
                     if (a.ap.eliminated && !b.ap.eliminated) return 1;
                     if (!a.ap.eliminated && b.ap.eliminated) return -1;
                     return (a.ap.rank_order ?? 9999) - (b.ap.rank_order ?? 9999);
@@ -173,8 +186,9 @@ export function AdminRankings() {
 
     const saveOrder = async (ordered: any[]) => {
         setSavingOrder(true);
-        const activeItems = ordered.filter((d) => !d.ap.eliminated);
-        const updates = activeItems.map((item, idx) =>
+        // Accepted items are pinned and don't need a stored rank_order
+        const rankableItems = ordered.filter((d) => !d.ap.eliminated && !isAcceptedApp(d));
+        const updates = rankableItems.map((item, idx) =>
             supabase
                 .from("application_positions")
                 .update({ rank_order: idx + 1 })
@@ -219,13 +233,17 @@ export function AdminRankings() {
         dragIndexRef.current = null;
         if (fromIndex == null || fromIndex === dropIndex) return;
 
-        // Reorder the full rankData (only non-eliminated move)
+        // Reorder the full rankData (only non-eliminated, non-accepted move)
         const next = [...rankData];
         const [moved] = next.splice(fromIndex, 1);
         next.splice(dropIndex, 0, moved);
-        setRankData(next);
+        // Re-pin accepted items to top
+        const accepted = next.filter((d) => isAcceptedApp(d));
+        const rest = next.filter((d) => !isAcceptedApp(d));
+        const reordered = [...accepted, ...rest];
+        setRankData(reordered);
         setIsManualOrder(true);
-        saveOrder(next);
+        saveOrder(reordered);
     };
 
     const onDragEnd = () => {
@@ -391,6 +409,7 @@ export function AdminRankings() {
                             {visibleData.map((item, visibleIdx) => {
                                 const { ap, positionAvg, overallAvg, rubricAvg, reviewCount } = item;
                                 const isEliminated = ap.eliminated === true;
+                                const isAccepted = isAcceptedApp(item);
                                 // dataIndex in the full rankData array (for drag)
                                 const dataIndex = rankData.indexOf(item);
                                 const app = ap.applications;
@@ -400,32 +419,35 @@ export function AdminRankings() {
                                     : "Unknown";
                                 const apId = ap.id;
                                 const rank = isEliminated ? null : visibleIdx + 1;
-                                const isDragTarget = !isEliminated && dragOverIndex === dataIndex;
+                                const isDragTarget = !isEliminated && !isAccepted && dragOverIndex === dataIndex;
+                                const isDraggable = !isEliminated && !isAccepted;
 
                                 return (
                                     <div
                                         key={apId}
-                                        draggable={!isEliminated}
-                                        onDragStart={(e) => !isEliminated && onDragStart(e, dataIndex)}
-                                        onDragOver={(e) => !isEliminated && onDragOver(e, dataIndex)}
-                                        onDrop={(e) => !isEliminated && onDrop(e, dataIndex)}
+                                        draggable={isDraggable}
+                                        onDragStart={(e) => isDraggable && onDragStart(e, dataIndex)}
+                                        onDragOver={(e) => isDraggable && onDragOver(e, dataIndex)}
+                                        onDrop={(e) => isDraggable && onDrop(e, dataIndex)}
                                         onDragEnd={onDragEnd}
                                         className={cn(
                                             "grid grid-cols-[1.5rem_2.5rem_1fr_6rem_6rem_1fr_7rem_2.5rem] border-b border-[#dbe0ec] last:border-b-0 items-start transition-colors",
                                             isEliminated
                                                 ? "bg-[#f9f9f7] opacity-50"
-                                                : isDragTarget
-                                                  ? "bg-[#f0f0ee] border-t-2 border-t-black"
-                                                  : "hover:bg-[#f9f9f7]",
-                                            !isEliminated && "cursor-default"
+                                                : isAccepted
+                                                  ? "bg-[#f0fdf4]"
+                                                  : isDragTarget
+                                                    ? "bg-[#f0f0ee] border-t-2 border-t-black"
+                                                    : "hover:bg-[#f9f9f7]",
+                                            !isDraggable && "cursor-default"
                                         )}
                                     >
                                         {/* Drag handle */}
                                         <div className={cn(
                                             "px-1 py-4 flex items-start justify-center pt-[18px]",
-                                            !isEliminated && "cursor-grab active:cursor-grabbing"
+                                            isDraggable && "cursor-grab active:cursor-grabbing"
                                         )}>
-                                            {!isEliminated && (
+                                            {isDraggable && (
                                                 <GripVertical className="w-3.5 h-3.5 text-[#dbe0ec]" />
                                             )}
                                         </div>
@@ -434,6 +456,8 @@ export function AdminRankings() {
                                         <div className="px-4 py-4 font-['Geist_Mono',monospace] text-sm text-black font-medium">
                                             {isEliminated ? (
                                                 <span className="text-[#6c6c6c] text-[10px]">–</span>
+                                            ) : isAccepted ? (
+                                                <span className="text-[10px] text-green-700">★</span>
                                             ) : rank != null && (positionAvg != null || overallAvg != null) ? (
                                                 rank
                                             ) : (
@@ -455,6 +479,11 @@ export function AdminRankings() {
                                             <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] mt-0.5">
                                                 {prof?.email || ""}
                                             </p>
+                                            {isAccepted && (
+                                                <span className="inline-block font-['Geist_Mono',monospace] text-[9px] bg-green-700 text-white px-1 py-0.5 mt-1 mr-1">
+                                                    accepted
+                                                </span>
+                                            )}
                                             {ap.position_rank != null && (
                                                 <span className="inline-block font-['Geist_Mono',monospace] text-[9px] bg-black text-white px-1 py-0.5 mt-1">
                                                     #{ap.position_rank} choice
@@ -531,7 +560,7 @@ export function AdminRankings() {
 
                                         {/* Eliminate / Restore */}
                                         <div className="px-2 py-4 flex items-start justify-center">
-                                            {togglingEliminated === apId ? (
+                                            {isAccepted ? null : togglingEliminated === apId ? (
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#6c6c6c]" />
                                             ) : isEliminated ? (
                                                 <button
