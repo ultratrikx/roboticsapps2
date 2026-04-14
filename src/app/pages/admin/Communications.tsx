@@ -222,35 +222,53 @@ export function AdminCommunications() {
             (ap: any) => !existingDecisionIds.has(ap.id),
         );
 
-        for (let i = 0; i < pending.length; i++) {
-            const ap = pending[i];
-            // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
-            if (i > 0) await sleep(EMAIL_PACING_MS);
-            const { error: err } = await supabase.from("decisions").insert({
-                application_position_id: ap.id,
-                type,
-            });
-            if (err) {
-                console.error(
-                    "Failed to insert decision for application_position:",
-                    ap.id,
-                    err,
-                );
-                setError(`Failed to send decision: ${err.message}`);
-            } else {
-                count++;
-                const emailSent = await sendEmailNotification(ap, type);
-                if (!emailSent) {
+        try {
+            for (let i = 0; i < pending.length; i++) {
+                const ap = pending[i];
+                // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
+                if (i > 0) await sleep(EMAIL_PACING_MS);
+                try {
+                    const { error: err } = await supabase
+                        .from("decisions")
+                        .insert({
+                            application_position_id: ap.id,
+                            type,
+                        });
+                    if (err) {
+                        console.error(
+                            "Failed to insert decision for application_position:",
+                            ap.id,
+                            err,
+                        );
+                        setError(`Failed to send decision: ${err.message}`);
+                        continue;
+                    }
+                    count++;
+                    const emailSent = await sendEmailNotification(ap, type);
+                    if (!emailSent) {
+                        const name =
+                            `${ap.profiles?.first_name || ""} ${ap.profiles?.last_name || ""}`.trim() ||
+                            ap.profiles?.email;
+                        emailFailures.push(name);
+                    }
+                } catch (iterErr) {
+                    // Never let one bad row kill the whole blast.
+                    console.error(
+                        "Decision blast: iteration failed for",
+                        ap?.id,
+                        iterErr,
+                    );
                     const name =
-                        `${ap.profiles?.first_name || ""} ${ap.profiles?.last_name || ""}`.trim() ||
-                        ap.profiles?.email;
+                        `${ap?.profiles?.first_name || ""} ${ap?.profiles?.last_name || ""}`.trim() ||
+                        ap?.profiles?.email ||
+                        "Unknown";
                     emailFailures.push(name);
                 }
             }
+        } finally {
+            setSentCount((prev) => prev + count);
+            setSending(false);
         }
-
-        setSentCount((prev) => prev + count);
-        setSending(false);
 
         if (count > 0) {
             toast.success(
@@ -273,56 +291,76 @@ export function AdminCommunications() {
         let count = 0;
         let emailFailures: string[] = [];
 
-        for (let i = 0; i < interviewCandidates.length; i++) {
-            const app = interviewCandidates[i];
-            // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
-            if (i > 0) await sleep(EMAIL_PACING_MS);
-            const profile = app.profiles;
-            const email = profile?.email;
-            if (!email) {
-                emailFailures.push(profile?.first_name || "Unknown");
-                continue;
-            }
-            const firstName = profile.first_name || "Applicant";
-            const positionNames =
-                formatList(
-                    (app.application_positions || [])
-                        .map((ap: any) => ap.positions?.title)
-                        .filter(Boolean),
-                ) || "Executive Position";
-            const portalUrl = window.location.origin + "/applicant";
-            const html = genericNotificationEmail(
-                firstName,
-                "You've Been Invited to Interview!",
-                `Congratulations! You have been selected for an interview for ${positionNames}.\n\nPlease use the link below to book your interview slot at a time that works for you. You can also find this link on your applicant portal.\n\n${CAL_BOOKING_URL}\n\nWe look forward to meeting you!`,
-                portalUrl + "/interview",
-            );
-            const { success } = await invokeSendEmail({
-                to: email,
-                subject: `Interview Invitation — WOSS Robotics Executive Positions`,
-                html,
-            });
-            if (!success) {
-                const name =
-                    `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
-                    email;
-                emailFailures.push(name);
-            } else {
-                count++;
-                // Log to email_log to prevent duplicate sends
-                await supabase
-                    .from("email_log")
-                    .insert({
+        try {
+            for (let i = 0; i < interviewCandidates.length; i++) {
+                const app = interviewCandidates[i];
+                // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
+                if (i > 0) await sleep(EMAIL_PACING_MS);
+                try {
+                    const profile = app.profiles;
+                    const email = profile?.email;
+                    if (!email) {
+                        emailFailures.push(profile?.first_name || "Unknown");
+                        continue;
+                    }
+                    const firstName = profile.first_name || "Applicant";
+                    const positionNames =
+                        formatList(
+                            (app.application_positions || [])
+                                .map((ap: any) => ap.positions?.title)
+                                .filter(Boolean),
+                        ) || "Executive Position";
+                    const portalUrl = window.location.origin + "/applicant";
+                    const html = genericNotificationEmail(
+                        firstName,
+                        "You've Been Invited to Interview!",
+                        `Congratulations! You have been selected for an interview for ${positionNames}.\n\nPlease use the link below to book your interview slot at a time that works for you. You can also find this link on your applicant portal.\n\n${CAL_BOOKING_URL}\n\nWe look forward to meeting you!`,
+                        portalUrl + "/interview",
+                    );
+                    const { success } = await invokeSendEmail({
+                        to: email,
+                        subject: `Interview Invitation — WOSS Robotics Executive Positions`,
+                        html,
+                    });
+                    if (!success) {
+                        const name =
+                            `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+                            email;
+                        emailFailures.push(name);
+                        continue;
+                    }
+                    count++;
+                    // Log to email_log to prevent duplicate sends. Supabase
+                    // query builders are PromiseLike — they expose `.then`
+                    // but NOT `.catch`, so chaining `.catch()` here would
+                    // throw synchronously and abort the whole blast. Await
+                    // normally and ignore the resolved `{ error }` field
+                    // (duplicate-key is fine — we just wanted to log once).
+                    await supabase.from("email_log").insert({
                         user_id: app.user_id,
                         type: "interview",
                         context_key: app.id,
-                    })
-                    .catch(() => {}); // ignore duplicate key errors
+                    });
+                } catch (iterErr) {
+                    // Never let one bad row kill the whole blast.
+                    console.error(
+                        "Interview blast: iteration failed for",
+                        app?.id,
+                        iterErr,
+                    );
+                    const profile = app?.profiles;
+                    const name =
+                        `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+                        profile?.email ||
+                        "Unknown";
+                    emailFailures.push(name);
+                }
             }
+        } finally {
+            setSentInterviewCount((prev) => prev + count);
+            setSending(false);
         }
 
-        setSentInterviewCount((prev) => prev + count);
-        setSending(false);
         if (count > 0)
             toast.success(
                 `Interview invitation sent to ${count} candidate${count !== 1 ? "s" : ""}`,
@@ -348,13 +386,14 @@ export function AdminCommunications() {
         toast.success("Decisions are now visible to applicants");
 
         // Notify ALL non-draft applicants who haven't been notified yet
-        try {
-            const portalUrl = window.location.origin + "/applicant/decisions";
-            let emailsSent = 0;
-            for (let i = 0; i < releaseNotifyApplicants.length; i++) {
-                const app = releaseNotifyApplicants[i];
-                // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
-                if (i > 0) await sleep(EMAIL_PACING_MS);
+        const portalUrl = window.location.origin + "/applicant/decisions";
+        let emailsSent = 0;
+        let notifyFailures = 0;
+        for (let i = 0; i < releaseNotifyApplicants.length; i++) {
+            const app = releaseNotifyApplicants[i];
+            // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
+            if (i > 0) await sleep(EMAIL_PACING_MS);
+            try {
                 const profile = app.profiles;
                 if (!profile?.email) continue;
                 const html = decisionReleasedEmail(
@@ -366,27 +405,38 @@ export function AdminCommunications() {
                     subject: "Your WOSS Robotics decision is ready to view",
                     html,
                 });
-                if (success) {
-                    emailsSent++;
-                    await supabase
-                        .from("email_log")
-                        .insert({
-                            user_id: app.user_id,
-                            type: "decisions_released",
-                            context_key: "",
-                        })
-                        .catch(() => {});
+                if (!success) {
+                    notifyFailures++;
+                    continue;
                 }
-            }
-            if (emailsSent > 0) {
-                toast.success(
-                    `Portal-open notification sent to ${emailsSent} applicant${emailsSent !== 1 ? "s" : ""}`,
+                emailsSent++;
+                // Supabase query builders don't expose `.catch`, so chaining
+                // .catch() here would throw and abort the blast. Await
+                // normally and ignore any duplicate-key error on the result.
+                await supabase.from("email_log").insert({
+                    user_id: app.user_id,
+                    type: "decisions_released",
+                    context_key: "",
+                });
+            } catch (iterErr) {
+                // Never let one bad row kill the whole blast.
+                console.error(
+                    "Decisions-released blast: iteration failed for",
+                    app?.id,
+                    iterErr,
                 );
+                notifyFailures++;
             }
-        } catch (err) {
-            console.error("Failed to send release notifications:", err);
+        }
+
+        if (emailsSent > 0) {
+            toast.success(
+                `Portal-open notification sent to ${emailsSent} applicant${emailsSent !== 1 ? "s" : ""}`,
+            );
+        }
+        if (notifyFailures > 0) {
             toast.error(
-                "Decisions released, but some notification emails failed",
+                `Decisions released, but ${notifyFailures} notification email${notifyFailures !== 1 ? "s" : ""} failed`,
             );
         }
 
