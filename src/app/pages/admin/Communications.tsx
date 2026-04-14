@@ -12,6 +12,45 @@ import {
 import { CAL_BOOKING_URL } from "../../lib/interview-config";
 import { formatList } from "../../lib/utils";
 
+// Resend's default rate limit is 2 requests/second. We pace each send with a
+// short delay so a bulk blast (28+ candidates) stays comfortably under the
+// limit — without this, every call after the first hits a 429 and the blast
+// silently "fails for 27 of 28 candidates".
+const EMAIL_PACING_MS = 600;
+const EMAIL_MAX_ATTEMPTS = 4;
+
+const sleep = (ms: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Invoke the `send-email` edge function with retry + exponential backoff.
+ * Returns `{ success: true }` on the first successful send, or
+ * `{ success: false }` after all attempts are exhausted. Backoff handles
+ * transient Resend rate-limit (429) responses that slip past pacing.
+ */
+async function invokeSendEmail(body: {
+    to: string;
+    subject: string;
+    html: string;
+}): Promise<{ success: boolean }> {
+    for (let attempt = 1; attempt <= EMAIL_MAX_ATTEMPTS; attempt++) {
+        const { data, error: invokeErr } = await supabase.functions.invoke(
+            "send-email",
+            { body },
+        );
+        if (!invokeErr && !data?.error) return { success: true };
+        console.error(
+            `send-email attempt ${attempt} failed:`,
+            invokeErr || data?.error,
+        );
+        if (attempt < EMAIL_MAX_ATTEMPTS) {
+            // 800ms, 1.6s, 3.2s — enough headroom for a tight rate-limit window
+            await sleep(800 * Math.pow(2, attempt - 1));
+        }
+    }
+    return { success: false };
+}
+
 export function AdminCommunications() {
     const { applications, loading } = useAllApplications();
     const { settings, loading: settingsLoading, updateSetting } = useSettings();
@@ -157,25 +196,12 @@ export function AdminCommunications() {
                     ? `Congratulations! Welcome to WOSS Robotics — ${positionTitle}`
                     : `Update on your WOSS Robotics application — ${positionTitle}`;
 
-            const { data, error: invokeErr } = await supabase.functions.invoke(
-                "send-email",
-                {
-                    body: { to: email, subject, html },
-                },
-            );
-
-            if (invokeErr) {
-                console.error("Email invoke error:", invokeErr);
-                return false;
-            }
-
-            // Check if the response indicates an error
-            if (data?.error) {
-                console.error("Email send error:", data.error);
-                return false;
-            }
-
-            return true;
+            const { success } = await invokeSendEmail({
+                to: email,
+                subject,
+                html,
+            });
+            return success;
         } catch (err) {
             console.error("Failed to send email notification:", err);
             return false;
@@ -196,7 +222,10 @@ export function AdminCommunications() {
             (ap: any) => !existingDecisionIds.has(ap.id),
         );
 
-        for (const ap of pending) {
+        for (let i = 0; i < pending.length; i++) {
+            const ap = pending[i];
+            // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
+            if (i > 0) await sleep(EMAIL_PACING_MS);
             const { error: err } = await supabase.from("decisions").insert({
                 application_position_id: ap.id,
                 type,
@@ -244,7 +273,10 @@ export function AdminCommunications() {
         let count = 0;
         let emailFailures: string[] = [];
 
-        for (const app of interviewCandidates) {
+        for (let i = 0; i < interviewCandidates.length; i++) {
+            const app = interviewCandidates[i];
+            // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
+            if (i > 0) await sleep(EMAIL_PACING_MS);
             const profile = app.profiles;
             const email = profile?.email;
             if (!email) {
@@ -265,17 +297,12 @@ export function AdminCommunications() {
                 `Congratulations! You have been selected for an interview for ${positionNames}.\n\nPlease use the link below to book your interview slot at a time that works for you. You can also find this link on your applicant portal.\n\n${CAL_BOOKING_URL}\n\nWe look forward to meeting you!`,
                 portalUrl + "/interview",
             );
-            const { data, error: invokeErr } = await supabase.functions.invoke(
-                "send-email",
-                {
-                    body: {
-                        to: email,
-                        subject: `Interview Invitation — WOSS Robotics Executive Positions`,
-                        html,
-                    },
-                },
-            );
-            if (invokeErr || data?.error) {
+            const { success } = await invokeSendEmail({
+                to: email,
+                subject: `Interview Invitation — WOSS Robotics Executive Positions`,
+                html,
+            });
+            if (!success) {
                 const name =
                     `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
                     email;
@@ -324,23 +351,22 @@ export function AdminCommunications() {
         try {
             const portalUrl = window.location.origin + "/applicant/decisions";
             let emailsSent = 0;
-            for (const app of releaseNotifyApplicants) {
+            for (let i = 0; i < releaseNotifyApplicants.length; i++) {
+                const app = releaseNotifyApplicants[i];
+                // Pace requests so bulk blasts stay under Resend's 2 req/s limit.
+                if (i > 0) await sleep(EMAIL_PACING_MS);
                 const profile = app.profiles;
                 if (!profile?.email) continue;
                 const html = decisionReleasedEmail(
                     profile.first_name || "Applicant",
                     portalUrl,
                 );
-                const { data, error: invokeErr } =
-                    await supabase.functions.invoke("send-email", {
-                        body: {
-                            to: profile.email,
-                            subject:
-                                "Your WOSS Robotics decision is ready to view",
-                            html,
-                        },
-                    });
-                if (!invokeErr && !data?.error) {
+                const { success } = await invokeSendEmail({
+                    to: profile.email,
+                    subject: "Your WOSS Robotics decision is ready to view",
+                    html,
+                });
+                if (success) {
                     emailsSent++;
                     await supabase
                         .from("email_log")
