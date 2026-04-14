@@ -36,23 +36,32 @@ export function AdminApplicationReview() {
     const [selectedScoringPosition, setSelectedScoringPosition] = useState<string>("overall");
     const [notes, setNotes] = useState("");
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [saveSuccess, setSaveSuccess] = useState(false);
     const [allReviews, setAllReviews] = useState<any[]>([]);
     const [updatingPositionId, setUpdatingPositionId] = useState<string | null>(
         null,
     );
-const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deletePassword, setDeletePassword] = useState("");
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [interviewNotes, setInterviewNotes] = useState<any[]>([]);
     const [myInterviewNote, setMyInterviewNote] = useState("");
+    const [reviewSaving, setReviewSaving] = useState(false);
+    const [reviewSaved, setReviewSaved] = useState(false);
     const [interviewNoteSaving, setInterviewNoteSaving] = useState(false);
     const [interviewNoteSaved, setInterviewNoteSaved] = useState(false);
+
+    // Stable refs so debounce callbacks always read current values
+    const applicationRef = useRef<any>(null);
+    const adminProfileRef = useRef<any>(null);
+    const scoresRef = useRef<Record<string, number>>({});
+    const positionScoresRef = useRef<Record<string, Record<string, number>>>({});
+    const notesRef = useRef("");
+    const myInterviewNoteRef = useRef("");
+    const dataLoadedRef = useRef(false);
+    const reviewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const interviewNoteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isFirstInterviewNoteLoad = useRef(true);
 const RUBRIC = [
         { id: "experience", label: "Relevant Experience" },
         { id: "essay", label: "Response Quality" },
@@ -110,129 +119,110 @@ const RUBRIC = [
                     setMyInterviewNote(myNote?.content || "");
                 }
             }
+            dataLoadedRef.current = true;
             setLoading(false);
         };
         fetchData();
     }, [id, adminProfile]);
 
+    // Keep refs in sync with state so debounce callbacks read current values
+    useEffect(() => { applicationRef.current = application; }, [application]);
+    useEffect(() => { adminProfileRef.current = adminProfile; }, [adminProfile]);
+    useEffect(() => { scoresRef.current = scores; }, [scores]);
+    useEffect(() => { positionScoresRef.current = positionScores; }, [positionScores]);
+    useEffect(() => { notesRef.current = notes; }, [notes]);
+    useEffect(() => { myInterviewNoteRef.current = myInterviewNote; }, [myInterviewNote]);
+
+    // Autosave review (scores + position scores + notes) with 1s debounce
+    useEffect(() => {
+        if (!dataLoadedRef.current) return;
+        if (reviewDebounceRef.current) clearTimeout(reviewDebounceRef.current);
+        reviewDebounceRef.current = setTimeout(async () => {
+            const app = applicationRef.current;
+            const prof = adminProfileRef.current;
+            if (!app || !prof) return;
+            setReviewSaving(true);
+            setReviewSaved(false);
+            const payload = {
+                scores: scoresRef.current,
+                position_scores: positionScoresRef.current,
+                notes: notesRef.current,
+                updated_at: new Date().toISOString(),
+            };
+            const { data: existing } = await supabase
+                .from("reviews")
+                .select("id")
+                .eq("application_id", app.id)
+                .eq("reviewer_id", prof.id)
+                .maybeSingle();
+            let err;
+            if (existing) {
+                ({ error: err } = await supabase.from("reviews").update(payload).eq("id", existing.id));
+            } else {
+                ({ error: err } = await supabase.from("reviews").insert({ application_id: app.id, reviewer_id: prof.id, ...payload }));
+            }
+            if (!err) {
+                setReviewSaved(true);
+                const { data: allRevs } = await supabase
+                    .from("reviews")
+                    .select("*, profiles:reviewer_id(first_name, last_name, email)")
+                    .eq("application_id", app.id)
+                    .order("updated_at", { ascending: false });
+                setAllReviews(allRevs || []);
+                setTimeout(() => setReviewSaved(false), 2000);
+            } else {
+                console.error("Failed to autosave review:", err);
+            }
+            setReviewSaving(false);
+        }, 1000);
+        return () => { if (reviewDebounceRef.current) clearTimeout(reviewDebounceRef.current); };
+    }, [scores, positionScores, notes]);
+
     // Autosave interview note with 1s debounce
     useEffect(() => {
-        if (isFirstInterviewNoteLoad.current) {
-            isFirstInterviewNoteLoad.current = false;
-            return;
-        }
-        if (!application || !adminProfile) return;
-
-        if (interviewNoteDebounceRef.current) {
-            clearTimeout(interviewNoteDebounceRef.current);
-        }
-
+        if (!dataLoadedRef.current) return;
+        if (interviewNoteDebounceRef.current) clearTimeout(interviewNoteDebounceRef.current);
         interviewNoteDebounceRef.current = setTimeout(async () => {
+            const app = applicationRef.current;
+            const prof = adminProfileRef.current;
+            if (!app || !prof) return;
             setInterviewNoteSaving(true);
             setInterviewNoteSaved(false);
+            const content = myInterviewNoteRef.current;
             const { error: err } = await supabase
                 .from("interview_notes")
                 .upsert(
-                    {
-                        application_id: application.id,
-                        admin_user_id: adminProfile.id,
-                        content: myInterviewNote,
-                        updated_at: new Date().toISOString(),
-                    },
+                    { application_id: app.id, admin_user_id: prof.id, content, updated_at: new Date().toISOString() },
                     { onConflict: "application_id,admin_user_id" },
                 );
             if (!err) {
                 setInterviewNoteSaved(true);
-                // Update the local list so other execs' view refreshes
                 setInterviewNotes((prev) => {
-                    const existing = prev.find((n) => n.admin_user_id === adminProfile.id);
+                    const existing = prev.find((n) => n.admin_user_id === prof.id);
                     if (existing) {
                         return prev.map((n) =>
-                            n.admin_user_id === adminProfile.id
-                                ? { ...n, content: myInterviewNote, updated_at: new Date().toISOString() }
+                            n.admin_user_id === prof.id
+                                ? { ...n, content, updated_at: new Date().toISOString() }
                                 : n,
                         );
                     }
-                    return [
-                        ...prev,
-                        {
-                            admin_user_id: adminProfile.id,
-                            application_id: application.id,
-                            content: myInterviewNote,
-                            updated_at: new Date().toISOString(),
-                            profiles: {
-                                first_name: adminProfile.first_name,
-                                last_name: adminProfile.last_name,
-                                email: adminProfile.email,
-                            },
-                        },
-                    ];
+                    return [...prev, {
+                        admin_user_id: prof.id,
+                        application_id: app.id,
+                        content,
+                        updated_at: new Date().toISOString(),
+                        profiles: { first_name: prof.first_name, last_name: prof.last_name, email: prof.email },
+                    }];
                 });
                 setTimeout(() => setInterviewNoteSaved(false), 2000);
+            } else {
+                console.error("Failed to autosave interview note:", err);
             }
             setInterviewNoteSaving(false);
         }, 1000);
-
-        return () => {
-            if (interviewNoteDebounceRef.current) {
-                clearTimeout(interviewNoteDebounceRef.current);
-            }
-        };
+        return () => { if (interviewNoteDebounceRef.current) clearTimeout(interviewNoteDebounceRef.current); };
     }, [myInterviewNote]);
 
-    const handleSaveReview = async () => {
-        if (!application || !adminProfile) return;
-        setSaving(true);
-
-        // Check if review exists first, then update or insert
-        const { data: existingReview } = await supabase
-            .from("reviews")
-            .select("id")
-            .eq("application_id", application.id)
-            .eq("reviewer_id", adminProfile.id)
-            .single();
-
-        setError(null);
-        setSaveSuccess(false);
-
-        if (existingReview) {
-            const { error: err } = await supabase
-                .from("reviews")
-                .update({ scores, position_scores: positionScores, notes, updated_at: new Date().toISOString() })
-                .eq("id", existingReview.id);
-            if (err) {
-                console.error("Failed to update review:", err);
-                setError(`Failed to save review: ${err.message}`);
-            } else {
-                setSaveSuccess(true);
-            }
-        } else {
-            const { error: err } = await supabase.from("reviews").insert({
-                application_id: application.id,
-                reviewer_id: adminProfile.id,
-                scores,
-                position_scores: positionScores,
-                notes,
-                updated_at: new Date().toISOString(),
-            });
-            if (err) {
-                console.error("Failed to insert review:", err);
-                setError(`Failed to save review: ${err.message}`);
-            } else {
-                setSaveSuccess(true);
-            }
-        }
-
-        // Refetch all reviews so the list stays current
-        const { data: allRevs } = await supabase
-            .from("reviews")
-            .select("*, profiles:reviewer_id(first_name, last_name, email)")
-            .eq("application_id", application.id)
-            .order("updated_at", { ascending: false });
-        setAllReviews(allRevs || []);
-
-        setSaving(false);
-    };
 
     const handleUpdateStatus = async (status: string) => {
         if (!application) return;
@@ -705,9 +695,20 @@ const RUBRIC = [
                 {/* Right pane: Rubric */}
                 <div className="w-72 bg-white border-l border-[#dbe0ec] flex flex-col shrink-0">
                     <div className="px-5 py-4 border-b border-[#dbe0ec]">
-                        <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] uppercase tracking-[0.08em] mb-3">
-                            Reviewer Rubric
-                        </p>
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="font-['Geist_Mono',monospace] text-[10px] text-[#6c6c6c] uppercase tracking-[0.08em]">
+                                Reviewer Rubric
+                            </p>
+                            <span className={cn(
+                                "font-['Geist_Mono',monospace] text-[10px] transition-opacity flex items-center gap-1",
+                                reviewSaving || reviewSaved ? "opacity-100" : "opacity-0"
+                            )}>
+                                {reviewSaving
+                                    ? <><Loader2 className="w-2.5 h-2.5 animate-spin text-[#6c6c6c]" /><span className="text-[#6c6c6c]">saving</span></>
+                                    : <span className="text-black">saved</span>
+                                }
+                            </span>
+                        </div>
                         {/* Scoring context: Overall + one tab per position */}
                         {appliedPositions.length > 0 && (
                             <div className="flex flex-wrap gap-1">
@@ -748,14 +749,6 @@ const RUBRIC = [
                                 </p>
                             </div>
                         )}
-                        {saveSuccess && (
-                            <div className="border border-[#dbe0ec] bg-[#f9f9f7] px-4 py-3">
-                                <p className="font-['Geist_Mono',monospace] text-[11px] text-black">
-                                    Evaluation saved.
-                                </p>
-                            </div>
-                        )}
-
                         {/* Positions summary in right pane */}
                         {appliedPositions.length > 0 && (
                             <div>
@@ -1036,22 +1029,6 @@ const RUBRIC = [
                             <span className="font-['Geist_Mono',monospace] text-[12px] whitespace-nowrap leading-none">
                                 Delete Application
                             </span>
-                        </button>
-                        <button
-                            onClick={handleSaveReview}
-                            disabled={saving}
-                            className="w-full bg-black flex gap-[10px] items-center justify-center px-5 py-3.5 hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                        >
-                            {saving ? (
-                                <Loader2 className="w-4 h-4 text-white animate-spin" />
-                            ) : (
-                                <>
-                                    <div className="bg-white shrink-0 w-[5px] h-[5px]" />
-                                    <span className="font-['Geist_Mono',monospace] text-[13px] text-white whitespace-nowrap leading-none">
-                                        Save Evaluation
-                                    </span>
-                                </>
-                            )}
                         </button>
 
                         {/* Status Pipeline */}
